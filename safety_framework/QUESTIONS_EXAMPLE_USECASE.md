@@ -4,11 +4,16 @@ Use each question to capture: **decision**, **owner**, **evidence/artifact**, **
 
 ## 1) What business outcomes will the AI influence, and what’s the maximum acceptable harm?
 - Which workflows will use AI output (advice, triage, approvals, customer-facing, internal ops)?
+  Developers will use ai-powered coding tools.
+  Users will interact with a RAG question-answering system.
 - Define impact tiers and “stop-the-line” thresholds (money, legal, safety, reputational, customer trust).
 
 ## 2) What is the AI allowed to know, retrieve, store, and reveal?
 - Allowed vs forbidden data classes (PII, credentials, contracts, source code, pricing, health/finance).
+  AI-Powered coding tools will be exposed to some IP.
+  RAG systems are exposed to some IP.
 - Rules for retention/logging, redaction, training opt-out, and cross-tenant/team separation (RAG permissions).
+  AI systems cannot be exposed to personal user info.
 
 ## 3) What is the AI allowed to *do* (actions), and what guardrails enforce business policy?
 - List permitted actions (e.g., issue refund, change account status, send emails, run queries, deploy code).
