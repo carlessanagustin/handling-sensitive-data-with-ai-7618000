@@ -1,0 +1,47 @@
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Environment files (use docker-compose env_file instead)
+.env
+
+# Git
+.git/
+.gitignore
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation
+README.md
+*.md
+
+# Logs
+*.log
+
+# Test files
+tests/
+test_*.py
+*_test.py

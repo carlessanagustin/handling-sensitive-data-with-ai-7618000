@@ -1,0 +1,34 @@
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Install Python dependencies
+RUN pip install --no-cache-dir \
+    edge-tts \
+    flask \
+    flask-cors \
+    requests
+
+# Copy the TTS server script
+COPY edge-tts-server.py /app/
+
+# Create cache directory
+RUN mkdir -p /app/cache
+
+# Expose port
+EXPOSE 5000
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV EDGE_TTS_VOICE=en-US-AriaNeural
+ENV EDGE_TTS_RATE=+0%
+ENV EDGE_TTS_VOLUME=+0%
+
+# Run the server
+CMD ["python", "edge-tts-server.py"]

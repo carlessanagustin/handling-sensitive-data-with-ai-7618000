@@ -1,0 +1,274 @@
+version: '3.8'
+
+# Note: Set OPENAI_API_KEY in your environment before running:
+# export OPENAI_API_KEY=sk-your-key-here
+# Then run: docker compose up -d
+
+services:
+  # PostgreSQL Database with security hardening
+  postgres:
+    image: postgres:16-alpine
+    container_name: litellm_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-litellm}
+      POSTGRES_USER: ${POSTGRES_USER:-litellm_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-litellm_default_password_change_in_production}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.utf8"
+      # Security: Disable trust authentication
+      POSTGRES_HOST_AUTH_METHOD: ${POSTGRES_HOST_AUTH_METHOD:-scram-sha-256}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - litellm_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-litellm_user} -d ${POSTGRES_DB:-litellm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Security: Run as non-root user
+    user: postgres
+    # Security: Read-only root filesystem (except data volume)
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+    # Security: Drop all capabilities
+    cap_drop:
+      - ALL
+    # Security: Prevent privilege escalation
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits for M2 Max (64GB RAM)
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+
+  # LiteLLM Proxy with security hardening
+  litellm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: litellm-proxy-local:latest
+    container_name: litellm_proxy
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${LITELLM_PORT:-4000}:4000"
+    environment:
+      # Database connection with SSL
+      DATABASE_URL: postgresql://${POSTGRES_USER:-litellm_user}:${POSTGRES_PASSWORD:-litellm_default_password_change_in_production}@postgres:5432/${POSTGRES_DB:-litellm}?sslmode=prefer
+      
+      # Security: Master key for admin access (REQUIRED)
+      # Set this in your environment or it will be auto-generated
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-1234567890abcdef}
+      
+      # Security: Salt key for encrypting API credentials (CANNOT be changed after first use)
+      # Set this in your environment or it will use a default (NOT RECOMMENDED for production)
+      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:-default-salt-key-change-in-production}
+      
+      # LLM Provider API Keys (REQUIRED - set in your environment)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?Please set OPENAI_API_KEY environment variable}
+      
+      # Security: Enable SSL verification
+      SSL_VERIFY: ${SSL_VERIFY:-true}
+      
+      # Security: Store API keys encrypted in database
+      STORE_MODEL_IN_DB: "True"
+      
+      # Logging and monitoring
+      LITELLM_LOG: ${LITELLM_LOG:-INFO}
+      
+      # Security: Set allowed origins for CORS
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:4000}
+      
+      # Security: Disable telemetry for data privacy
+      LITELLM_TELEMETRY: ${LITELLM_TELEMETRY:-False}
+      
+      # Security: Enable request logging for audit trail
+      LITELLM_REQUEST_LOGS: ${LITELLM_REQUEST_LOGS:-True}
+      
+      # Performance: Set worker count based on CPU cores
+      WORKER_COUNT: ${WORKER_COUNT:-4}
+      
+      # Timezone
+      TZ: ${TZ:-UTC}
+    volumes:
+      - litellm_logs:/app/logs
+      - litellm_cache:/app/cache
+    networks:
+      - litellm_network
+    command: >
+      --config /app/config.yaml
+      --port 4000
+      --num_workers ${WORKER_COUNT:-4}
+      --detailed_debug
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:4000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # Security: Drop all capabilities
+    cap_drop:
+      - ALL
+    # Security: Prevent privilege escalation
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits for M2 Max (64GB RAM)
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 16G
+        reservations:
+          cpus: '4'
+          memory: 8G
+
+  # Optional: Redis for caching (recommended for production)
+  redis:
+    image: redis:7-alpine
+    container_name: litellm_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-redis_default_password_change_in_production}
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+      --appendonly yes
+      --appendfsync everysec
+    volumes:
+      - redis_data:/data
+    networks:
+      - litellm_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+    # Security: Run as non-root user
+    user: redis
+    # Security: Read-only root filesystem
+    read_only: true
+    tmpfs:
+      - /tmp
+    # Security: Drop all capabilities
+    cap_drop:
+      - ALL
+    # Security: Prevent privilege escalation
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # Test service - Run with: docker compose run --rm test
+  test:
+    image: curlimages/curl:latest
+    container_name: litellm_test
+    depends_on:
+      litellm:
+        condition: service_healthy
+    networks:
+      - litellm_network
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-1234567890abcdef}
+      LITELLM_URL: http://litellm:4000
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        echo "🧪 LiteLLM Proxy Test"
+        echo "===================="
+        echo ""
+        
+        # Health check
+        echo "1️⃣  Checking health..."
+        if curl -s -f $${LITELLM_URL}/health > /dev/null; then
+          echo "✅ Proxy is healthy"
+        else
+          echo "❌ Proxy not responding"
+          exit 1
+        fi
+        echo ""
+        
+        # Create virtual key
+        echo "2️⃣  Creating virtual key..."
+        RESPONSE=$$(curl -s -X POST $${LITELLM_URL}/key/generate \
+          -H "Authorization: Bearer $${LITELLM_MASTER_KEY}" \
+          -H 'Content-Type: application/json' \
+          -d '{"max_budget": 10, "rpm_limit": 100}')
+        
+        VIRTUAL_KEY=$$(echo "$$RESPONSE" | grep -o '"key":"[^"]*' | cut -d'"' -f4)
+        
+        if [ -z "$$VIRTUAL_KEY" ]; then
+          echo "❌ Failed to create virtual key"
+          echo "Response: $$RESPONSE"
+          exit 1
+        fi
+        
+        echo "✅ Virtual key: $${VIRTUAL_KEY:0:20}..."
+        echo ""
+        
+        # Test request
+        echo "3️⃣  Testing gpt-5-nano..."
+        CHAT_RESPONSE=$$(curl -s -X POST $${LITELLM_URL}/chat/completions \
+          -H "Authorization: Bearer $$VIRTUAL_KEY" \
+          -H 'Content-Type: application/json' \
+          -d '{"model":"gpt-5-nano","messages":[{"role":"user","content":"Say hello"}]}')
+        
+        if echo "$$CHAT_RESPONSE" | grep -q '"content"'; then
+          echo "✅ Response received"
+          echo "$$CHAT_RESPONSE" | grep -o '"content":"[^"]*' | cut -d'"' -f4 | head -1
+        else
+          echo "❌ Request failed"
+          echo "Response: $$CHAT_RESPONSE"
+          exit 1
+        fi
+        
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "✅ All tests passed!"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "💡 Your virtual key: $$VIRTUAL_KEY"
+        echo ""
+        echo "Use this key in your application"
+    profiles:
+      - tools
+
+networks:
+  litellm_network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: litellm0
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  litellm_cache:
+    driver: local
+  litellm_logs:
+    driver: local

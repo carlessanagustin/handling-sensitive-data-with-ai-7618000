@@ -1,0 +1,12 @@
+# Don't include these in Docker builds
+.env
+.env.*
+*.log
+logs/
+backups/
+.git/
+.gitignore
+*.md
+scripts/
+setup.sh
+.DS_Store

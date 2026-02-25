@@ -1,0 +1,34 @@
+# see https://docs.searxng.org/admin/settings/settings.html#settings-use-default-settings
+use_default_settings: true
+
+server:
+  # base_url is defined in the SEARXNG_BASE_URL environment variable, see .env and docker-compose.yml
+  secret_key: "e117983f9a87a6aeae4ff9210c22b02232097cc414009def49fc5dd4ec33baa2"  # change this!
+  limiter: false  # disabled for private instance
+  image_proxy: true
+  port: 8080
+  bind_address: "0.0.0.0"
+
+ui:
+  static_use_hash: true
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: ""
+  formats:
+    - html
+    - json # json is required
+  # remove format to deny access, use lower case.
+  # formats: [html, csv, json, rss]
+
+# Disable bot detection for private instance
+botdetection:
+  ip_limit:
+    # disable limiter
+    filter_link_local: false
+  ip_lists:
+    pass_ip: 
+      - '172.16.0.0/12'  # Docker networks
+      - '10.0.0.0/8'     # Private networks
+      - '192.168.0.0/16' # Private networks

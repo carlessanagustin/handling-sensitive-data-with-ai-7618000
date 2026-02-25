@@ -1,0 +1,43 @@
+services:
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    ports:
+      - "3000:8080"
+    volumes:
+      - open-webui:/app/backend/data
+    environment:
+      - SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>
+    depends_on:
+      - searxng
+      - edge-tts
+    networks:
+      - webui-network
+
+  searxng:
+    image: searxng/searxng:latest
+    ports:
+      - "4000:8080"
+    volumes:
+      - searxng-data:/etc/searxng
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:4000/
+    networks:
+      - webui-network
+    restart: unless-stopped
+
+  edge-tts:
+    image: travisvn/openai-edge-tts:latest
+    ports:
+      - "5001:5000"
+    networks:
+      - webui-network
+    restart: unless-stopped
+
+networks:
+  webui-network:
+    driver: bridge
+
+volumes:
+  open-webui:
+  searxng-data:
