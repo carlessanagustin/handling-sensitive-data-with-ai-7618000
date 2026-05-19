@@ -10,8 +10,13 @@ services:
         - linux/arm64
     container_name: quarantined_llm
     environment:
-      - OPENAI_API_KEY
-      - OPENAI_MODEL=gpt-4o-mini
+      - PROVIDER=${PROVIDER:-claude}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-haiku-4-5-20251001}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+      - MISTRAL_MODEL=${MISTRAL_MODEL:-mistral-small-latest}
     networks:
       - quarantined-network
     deploy:
@@ -42,8 +47,13 @@ services:
         - linux/arm64
     container_name: privileged_llm
     environment:
-      - OPENAI_API_KEY
-      - OPENAI_MODEL=gpt-4o-mini
+      - PROVIDER=${PROVIDER:-claude}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-haiku-4-5-20251001}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+      - MISTRAL_MODEL=${MISTRAL_MODEL:-mistral-small-latest}
     networks:
       - privileged-network
     deploy:

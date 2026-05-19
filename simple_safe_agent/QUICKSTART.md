@@ -1,36 +1,42 @@
-# Quick Start Guide
+# Usage
 
-## Two Commands to Run
-
-### 1. Build images
+## 1. Build images
 
 ```bash
 docker compose build
 ```
 
-### 2. Export your OpenAI API key
+## 2. Select provider and set environment variables
 
 ```bash
-export OPENAI_API_KEY=sk-your-actual-key-here
+# Claude (default)
+export PROVIDER=claude
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Ollama (requires local Ollama with llama3.2 pulled)
+export PROVIDER=ollama
+export OLLAMA_BASE_URL=http://ollama:11434
+
+# Mistral
+export PROVIDER=mistral
+export MISTRAL_API_KEY=<your-key>
 ```
 
-### 3. Start with Docker Compose
+## 3. Start with Docker Compose
 
 ```bash
 docker compose up -d
+docker compose logs -f
 ```
 
-## Test It
+## 4. Test It
 
 ```bash
-# Run all tests
 docker compose run --rm test
 ```
 
-## Stop It
+## 5. Stop It
 
 ```bash
 docker compose down --rmi all
 ```
-
-That's it!

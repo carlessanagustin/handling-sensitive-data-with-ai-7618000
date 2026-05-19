@@ -10,20 +10,40 @@ Quarantined LLM Service
 import os
 from fastapi import FastAPI
 from pydantic import BaseModel
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_ollama import ChatOllama
+from langchain_mistralai import ChatMistralAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
 app = FastAPI()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise RuntimeError("OPENAI_API_KEY environment variable required")
-
-llm = ChatOpenAI(
-    model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-    temperature=0.3,
-    api_key=OPENAI_API_KEY
-)
+PROVIDER = os.getenv("PROVIDER", "claude").lower()
+if PROVIDER == "claude":
+    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+    if not ANTHROPIC_API_KEY:
+        raise RuntimeError("ANTHROPIC_API_KEY environment variable required")
+    llm = ChatAnthropic(
+        model=os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001"),
+        temperature=0.3,
+        api_key=ANTHROPIC_API_KEY,
+    )
+elif PROVIDER == "ollama":
+    llm = ChatOllama(
+        model=os.getenv("OLLAMA_MODEL", "llama3.2"),
+        temperature=0.3,
+        base_url=os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434"),
+    )
+elif PROVIDER == "mistral":
+    MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+    if not MISTRAL_API_KEY:
+        raise RuntimeError("MISTRAL_API_KEY environment variable required")
+    llm = ChatMistralAI(
+        model=os.getenv("MISTRAL_MODEL", "mistral-small-latest"),
+        temperature=0.3,
+        api_key=MISTRAL_API_KEY,
+    )
+else:
+    raise RuntimeError(f"Unknown PROVIDER '{PROVIDER}': must be 'claude', 'ollama', or 'mistral'")
 
 SYSTEM_PROMPT = """You are a quarantined assistant processing untrusted email content.
 

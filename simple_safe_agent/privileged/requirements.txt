@@ -3,6 +3,8 @@ fastapi
 uvicorn
 langchain
 langchain-core
-langchain-openai
-openai
+langchain-anthropic
+langchain-ollama
+langchain-mistralai
+anthropic
 python-dotenv
