@@ -8,13 +8,13 @@ Quarantined LLM Service
 """
 
 import os
-from flask import Flask, request, jsonify
+from fastapi import FastAPI
+from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
-app = Flask(__name__)
+app = FastAPI()
 
-# Initialize LLM
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise RuntimeError("OPENAI_API_KEY environment variable required")
@@ -39,46 +39,25 @@ You CANNOT access the internet.
 Simply process the email content you're given and provide the requested output."""
 
 
-@app.route('/health', methods=['GET'])
+class ProcessRequest(BaseModel):
+    prompt: str
+
+
+@app.get('/health')
 def health():
-    """Health check endpoint"""
-    return jsonify({"status": "healthy", "service": "quarantined-llm"})
+    return {"status": "healthy", "service": "quarantined-llm"}
 
 
-@app.route('/process', methods=['POST'])
-def process():
-    """
-    Process untrusted content
-    
-    Expected JSON body:
-    {
-        "prompt": "Summarize this email: ..."
-    }
-    """
-    try:
-        data = request.get_json()
-        if not data or 'prompt' not in data:
-            return jsonify({"error": "Missing 'prompt' field"}), 400
-        
-        prompt = data['prompt']
-        
-        # Process with LLM
-        messages = [
-            SystemMessage(content=SYSTEM_PROMPT),
-            HumanMessage(content=prompt)
-        ]
-        
-        response = llm.invoke(messages)
-        
-        return jsonify({
-            "result": response.content,
-            "status": "success"
-        })
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+@app.post('/process')
+def process(body: ProcessRequest):
+    messages = [
+        SystemMessage(content=SYSTEM_PROMPT),
+        HumanMessage(content=body.prompt)
+    ]
+    response = llm.invoke(messages)
+    return {"result": response.content, "status": "success"}
 
 
 if __name__ == '__main__':
-    # Run on port 5002, accessible only within Docker network
-    app.run(host='0.0.0.0', port=5002, debug=False)
+    import uvicorn
+    uvicorn.run(app, host='0.0.0.0', port=5002)

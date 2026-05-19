@@ -10,12 +10,13 @@ Privileged LLM Service
 
 import os
 import csv
-from typing import List, Dict
-from flask import Flask, request, jsonify
+from typing import List, Dict, Optional
+from fastapi import FastAPI
+from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
-app = Flask(__name__)
+app = FastAPI()
 
 # Initialize LLM
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -60,13 +61,12 @@ You can chain multiple actions. Think step by step."""
 
 class EmailStore:
     """Email storage and retrieval"""
-    
+
     def __init__(self, csv_path: str):
         self.emails = []
         self.load_emails(csv_path)
-    
+
     def load_emails(self, csv_path: str):
-        """Load emails from CSV file"""
         try:
             with open(csv_path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
@@ -75,137 +75,77 @@ class EmailStore:
         except Exception as e:
             print(f"WARNING: Failed to load emails: {e}")
             self.emails = []
-    
+
     def fetch_latest_emails(self, count: int = 1) -> List[Dict]:
-        """Fetch the latest N emails"""
         return self.emails[-count:] if self.emails else []
-    
+
     def search_emails(self, query: str) -> List[Dict]:
-        """Search emails by subject or body content"""
         query_lower = query.lower()
-        results = []
-        for email in self.emails:
-            subject = email.get('subject', '').lower()
-            body = email.get('body', '').lower()
-            if query_lower in subject or query_lower in body:
-                results.append(email)
-        return results
+        return [
+            e for e in self.emails
+            if query_lower in e.get('subject', '').lower()
+            or query_lower in e.get('body', '').lower()
+        ]
 
 
 # Initialize email store
 email_store = EmailStore("/app/mock_emails.csv")
 
 
-@app.route('/health', methods=['GET'])
+# --- Request/response models ---
+
+class FetchLatestRequest(BaseModel):
+    count: int = 1
+
+
+class SearchRequest(BaseModel):
+    query: str
+
+
+class ProcessRequest(BaseModel):
+    user_input: str
+    conversation_history: Optional[List[str]] = []
+
+
+# --- Routes ---
+
+@app.get('/health')
 def health():
-    """Health check endpoint"""
-    return jsonify({
-        "status": "healthy",
-        "service": "privileged-llm",
-        "emails_loaded": len(email_store.emails)
-    })
+    return {"status": "healthy", "service": "privileged-llm", "emails_loaded": len(email_store.emails)}
 
 
-@app.route('/emails/latest', methods=['POST'])
-def fetch_latest_emails():
-    """
-    Fetch latest emails
-    
-    Expected JSON body:
-    {
-        "count": 1
-    }
-    """
-    try:
-        data = request.get_json() or {}
-        count = data.get('count', 1)
-        
-        emails = email_store.fetch_latest_emails(count)
-        
-        return jsonify({
-            "emails": emails,
-            "count": len(emails),
-            "status": "success"
-        })
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+@app.post('/emails/latest')
+def fetch_latest_emails(body: FetchLatestRequest):
+    emails = email_store.fetch_latest_emails(body.count)
+    return {"emails": emails, "count": len(emails), "status": "success"}
 
 
-@app.route('/emails/search', methods=['POST'])
-def search_emails():
-    """
-    Search emails
-    
-    Expected JSON body:
-    {
-        "query": "security"
-    }
-    """
-    try:
-        data = request.get_json()
-        if not data or 'query' not in data:
-            return jsonify({"error": "Missing 'query' field"}), 400
-        
-        query = data['query']
-        emails = email_store.search_emails(query)
-        
-        return jsonify({
-            "emails": emails,
-            "count": len(emails),
-            "query": query,
-            "status": "success"
-        })
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+@app.post('/emails/search')
+def search_emails(body: SearchRequest):
+    emails = email_store.search_emails(body.query)
+    return {"emails": emails, "count": len(emails), "query": body.query, "status": "success"}
 
 
-@app.route('/process', methods=['POST'])
-def process():
-    """
-    Process user request and return action plan
-    
-    Expected JSON body:
-    {
-        "user_input": "Summarize my latest email",
-        "conversation_history": ["previous context..."]
-    }
-    """
-    try:
-        data = request.get_json()
-        if not data or 'user_input' not in data:
-            return jsonify({"error": "Missing 'user_input' field"}), 400
-        
-        user_input = data['user_input']
-        conversation_history = data.get('conversation_history', [])
-        
-        # Build conversation context
-        history_context = "\n".join(conversation_history) if conversation_history else "No previous context."
-        
-        full_prompt = f"""Previous context:
+@app.post('/process')
+def process(body: ProcessRequest):
+    history_context = "\n".join(body.conversation_history) if body.conversation_history else "No previous context."
+
+    full_prompt = f"""Previous context:
 {history_context}
 
-User request: {user_input}
+User request: {body.user_input}
 
 What actions should be taken? Respond with ACTION: statements."""
-        
-        messages = [
-            SystemMessage(content=SYSTEM_PROMPT),
-            HumanMessage(content=full_prompt)
-        ]
-        
-        response = llm.invoke(messages)
-        
-        return jsonify({
-            "response": response.content,
-            "status": "success"
-        })
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+
+    messages = [
+        SystemMessage(content=SYSTEM_PROMPT),
+        HumanMessage(content=full_prompt)
+    ]
+
+    response = llm.invoke(messages)
+    return {"response": response.content, "status": "success"}
 
 
 if __name__ == '__main__':
-    # Run on port 5001, accessible only within Docker network
-    app.run(host='0.0.0.0', port=5001, debug=False)
+    import uvicorn
+    uvicorn.run(app, host='0.0.0.0', port=5001)
