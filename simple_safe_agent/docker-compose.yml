@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Quarantined LLM - Maximum isolation, no external access
   quarantined:
@@ -22,10 +20,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: "2"
           memory: 4G
         reservations:
-          cpus: '1'
+          cpus: "1"
           memory: 1G
     security_opt:
       - no-new-privileges:true
@@ -59,10 +57,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: "2"
           memory: 4G
         reservations:
-          cpus: '1'
+          cpus: "1"
           memory: 1G
     security_opt:
       - no-new-privileges:true
@@ -98,10 +96,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: "2"
           memory: 2G
         reservations:
-          cpus: '1'
+          cpus: "1"
           memory: 512M
     security_opt:
       - no-new-privileges:true
@@ -185,7 +183,7 @@ services:
         print("\n" + "="*64)
         print("  🤖 Dual LLM Safe Agent - Security Test")
         print("="*64)
-        
+
         print("\n📊 Health Checks:")
         results = [
             test_health("Controller", "http://controller:5000/health"),
@@ -195,7 +193,7 @@ services:
 
         print("\n🧪 Testing Dual LLM Pattern:")
         results.append(test_query("Summarize my latest email"))
-        
+
         # Direct test of dangerous email
         print("\n🛡️  Testing Prompt Injection Handling:")
         try:
@@ -245,6 +243,6 @@ networks:
   # Separate networks for isolation
   quarantined-network:
     driver: bridge
-    internal: false  # Quarantined can't access external network
+    internal: false # Quarantined can't access external network
   privileged-network:
     driver: bridge

@@ -10,15 +10,13 @@ Quarantined LLM Service
 import os
 from fastapi import FastAPI
 from pydantic import BaseModel
-from langchain_anthropic import ChatAnthropic
-from langchain_ollama import ChatOllama
-from langchain_mistralai import ChatMistralAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
 app = FastAPI()
 
 PROVIDER = os.getenv("PROVIDER", "claude").lower()
 if PROVIDER == "claude":
+    from langchain_anthropic import ChatAnthropic
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
     if not ANTHROPIC_API_KEY:
         raise RuntimeError("ANTHROPIC_API_KEY environment variable required")
@@ -28,12 +26,14 @@ if PROVIDER == "claude":
         api_key=ANTHROPIC_API_KEY,
     )
 elif PROVIDER == "ollama":
+    from langchain_ollama import ChatOllama
     llm = ChatOllama(
         model=os.getenv("OLLAMA_MODEL", "llama3.2"),
         temperature=0.3,
         base_url=os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434"),
     )
 elif PROVIDER == "mistral":
+    from langchain_mistralai import ChatMistralAI
     MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
     if not MISTRAL_API_KEY:
         raise RuntimeError("MISTRAL_API_KEY environment variable required")

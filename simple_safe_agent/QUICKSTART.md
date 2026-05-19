@@ -6,20 +6,19 @@
 docker compose build
 ```
 
-## 2. Select provider and set environment variables
+## 2. Configure provider
+
+Copy `.env.example` to `.env` and fill in your provider and API key:
 
 ```bash
-# Claude (default)
-export PROVIDER=claude
-export ANTHROPIC_API_KEY=sk-ant-...
+cp .env.example .env
+```
 
-# Ollama (requires local Ollama with llama3.2 pulled)
-export PROVIDER=ollama
-export OLLAMA_BASE_URL=http://ollama:11434
+Then edit `.env`:
 
-# Mistral
-export PROVIDER=mistral
-export MISTRAL_API_KEY=<your-key>
+```dotenv
+PROVIDER=mistral          # claude | ollama | mistral
+MISTRAL_API_KEY=<your-key>
 ```
 
 ## 3. Start with Docker Compose
