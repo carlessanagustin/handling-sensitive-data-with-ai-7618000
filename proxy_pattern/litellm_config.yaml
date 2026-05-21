@@ -2,34 +2,38 @@
 # Documentation: https://docs.litellm.ai/docs/proxy/configs
 
 model_list:
-  # Current OpenAI Models (2026) - Recommended
-  - model_name: gpt-5.2
+  - model_name: mistral-small-latest
     litellm_params:
-      model: openai/gpt-5.2
-      api_key: os.environ/OPENAI_API_KEY
-      timeout: 120
-      max_retries: 3
-  
-  - model_name: gpt-5-mini
-    litellm_params:
-      model: openai/gpt-5-mini
-      api_key: os.environ/OPENAI_API_KEY
-      timeout: 60
-      max_retries: 3
-  
-  - model_name: gpt-5-nano
-    litellm_params:
-      model: openai/gpt-5-nano
-      api_key: os.environ/OPENAI_API_KEY
-      timeout: 60
-      max_retries: 3
-  
-  - model_name: gpt-4.1
-    litellm_params:
-      model: openai/gpt-4.1
-      api_key: os.environ/OPENAI_API_KEY
-      timeout: 60
-      max_retries: 3
+      model: mistral/mistral-small-latest
+      api_key: "os.environ/MISTRAL_API_KEY" # ensure you have `MISTRAL_API_KEY` in your .env
+  ## Current OpenAI Models (2026) - Recommended
+  #- model_name: gpt-5.2
+  #  litellm_params:
+  #    model: openai/gpt-5.2
+  #    api_key: os.environ/OPENAI_API_KEY
+  #    timeout: 120
+  #    max_retries: 3
+  #
+  #- model_name: gpt-5-mini
+  #  litellm_params:
+  #    model: openai/gpt-5-mini
+  #    api_key: os.environ/OPENAI_API_KEY
+  #    timeout: 60
+  #    max_retries: 3
+  #
+  #- model_name: gpt-5-nano
+  #  litellm_params:
+  #    model: openai/gpt-5-nano
+  #    api_key: os.environ/OPENAI_API_KEY
+  #    timeout: 60
+  #    max_retries: 3
+  #
+  #- model_name: gpt-4.1
+  #  litellm_params:
+  #    model: openai/gpt-4.1
+  #    api_key: os.environ/OPENAI_API_KEY
+  #    timeout: 60
+  #    max_retries: 3
   
   # Legacy Models (still available but not recommended)
   # - model_name: gpt-4o

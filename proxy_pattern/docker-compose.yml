@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Note: Set OPENAI_API_KEY in your environment before running:
 # export OPENAI_API_KEY=sk-your-key-here
 # Then run: docker compose up -d
@@ -20,10 +18,20 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - ./certs:/postgres_certs:ro
+    command: >
+      postgres
+      -c ssl=on
+      -c ssl_cert_file=/postgres_certs/server.crt
+      -c ssl_key_file=/postgres_certs/server.key
     networks:
       - litellm_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-litellm_user} -d ${POSTGRES_DB:-litellm}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-litellm_user} -d ${POSTGRES_DB:-litellm}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,18 +53,15 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4'
+          cpus: "2"
           memory: 4G
         reservations:
-          cpus: '2'
+          cpus: "1"
           memory: 2G
 
   # LiteLLM Proxy with security hardening
   litellm:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: litellm-proxy-local:latest
+    image: ghcr.io/berriai/litellm:main-latest
     container_name: litellm_proxy
     restart: unless-stopped
     depends_on:
@@ -65,44 +70,46 @@ services:
     ports:
       - "${LITELLM_PORT:-4000}:4000"
     environment:
-      # Database connection with SSL
+      # Database connection with SSL - https://jdbc.postgresql.org/documentation/ssl/
       DATABASE_URL: postgresql://${POSTGRES_USER:-litellm_user}:${POSTGRES_PASSWORD:-litellm_default_password_change_in_production}@postgres:5432/${POSTGRES_DB:-litellm}?sslmode=prefer
-      
+
       # Security: Master key for admin access (REQUIRED)
       # Set this in your environment or it will be auto-generated
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-1234567890abcdef}
-      
+
       # Security: Salt key for encrypting API credentials (CANNOT be changed after first use)
       # Set this in your environment or it will use a default (NOT RECOMMENDED for production)
       LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:-default-salt-key-change-in-production}
-      
+
       # LLM Provider API Keys (REQUIRED - set in your environment)
       OPENAI_API_KEY: ${OPENAI_API_KEY:?Please set OPENAI_API_KEY environment variable}
-      
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:?Please set MISTRAL_API_KEY environment variable}
+
       # Security: Enable SSL verification
       SSL_VERIFY: ${SSL_VERIFY:-true}
-      
+
       # Security: Store API keys encrypted in database
       STORE_MODEL_IN_DB: "True"
-      
+
       # Logging and monitoring
       LITELLM_LOG: ${LITELLM_LOG:-INFO}
-      
+
       # Security: Set allowed origins for CORS
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:4000}
-      
+
       # Security: Disable telemetry for data privacy
       LITELLM_TELEMETRY: ${LITELLM_TELEMETRY:-False}
-      
+
       # Security: Enable request logging for audit trail
       LITELLM_REQUEST_LOGS: ${LITELLM_REQUEST_LOGS:-True}
-      
+
       # Performance: Set worker count based on CPU cores
       WORKER_COUNT: ${WORKER_COUNT:-4}
-      
+
       # Timezone
       TZ: ${TZ:-UTC}
     volumes:
+      - ./litellm_config.yaml:/app/config.yaml:ro
       - litellm_logs:/app/logs
       - litellm_cache:/app/cache
     networks:
@@ -113,7 +120,11 @@ services:
       --num_workers ${WORKER_COUNT:-4}
       --detailed_debug
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:4000/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health')\" || exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -124,14 +135,14 @@ services:
     # Security: Prevent privilege escalation
     security_opt:
       - no-new-privileges:true
-    # Resource limits for M2 Max (64GB RAM)
+    # Resource limits for 6-CPU environment
     deploy:
       resources:
         limits:
-          cpus: '8'
+          cpus: "3"
           memory: 16G
         reservations:
-          cpus: '4'
+          cpus: "2"
           memory: 8G
 
   # Optional: Redis for caching (recommended for production)
@@ -169,14 +180,14 @@ services:
     # Security: Prevent privilege escalation
     security_opt:
       - no-new-privileges:true
-    # Resource limits
+    # Resource limits for 6-CPU environment
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: "1"
           memory: 2G
         reservations:
-          cpus: '1'
+          cpus: "0.5"
           memory: 1G
 
   # Test service - Run with: docker compose run --rm test
@@ -198,7 +209,7 @@ services:
         echo "🧪 LiteLLM Proxy Test"
         echo "===================="
         echo ""
-        
+
         # Health check
         echo "1️⃣  Checking health..."
         if curl -s -f $${LITELLM_URL}/health > /dev/null; then
@@ -208,32 +219,32 @@ services:
           exit 1
         fi
         echo ""
-        
+
         # Create virtual key
         echo "2️⃣  Creating virtual key..."
         RESPONSE=$$(curl -s -X POST $${LITELLM_URL}/key/generate \
           -H "Authorization: Bearer $${LITELLM_MASTER_KEY}" \
           -H 'Content-Type: application/json' \
           -d '{"max_budget": 10, "rpm_limit": 100}')
-        
+
         VIRTUAL_KEY=$$(echo "$$RESPONSE" | grep -o '"key":"[^"]*' | cut -d'"' -f4)
-        
+
         if [ -z "$$VIRTUAL_KEY" ]; then
           echo "❌ Failed to create virtual key"
           echo "Response: $$RESPONSE"
           exit 1
         fi
-        
+
         echo "✅ Virtual key: $${VIRTUAL_KEY:0:20}..."
         echo ""
-        
+
         # Test request
         echo "3️⃣  Testing gpt-5-nano..."
         CHAT_RESPONSE=$$(curl -s -X POST $${LITELLM_URL}/chat/completions \
           -H "Authorization: Bearer $$VIRTUAL_KEY" \
           -H 'Content-Type: application/json' \
           -d '{"model":"gpt-5-nano","messages":[{"role":"user","content":"Say hello"}]}')
-        
+
         if echo "$$CHAT_RESPONSE" | grep -q '"content"'; then
           echo "✅ Response received"
           echo "$$CHAT_RESPONSE" | grep -o '"content":"[^"]*' | cut -d'"' -f4 | head -1
@@ -242,7 +253,7 @@ services:
           echo "Response: $$CHAT_RESPONSE"
           exit 1
         fi
-        
+
         echo ""
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo "✅ All tests passed!"

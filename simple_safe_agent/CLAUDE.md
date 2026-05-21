@@ -53,7 +53,8 @@ MISTRAL_API_KEY=...
 ## Running
 
 ```bash
-# 1. Edit .env with your provider and API key
+# 1. Copy .env.example to .env, then fill in your provider and API key
+cp .env.example .env
 # 2. Build and start
 docker compose build
 docker compose up -d
@@ -70,7 +71,7 @@ curl -X POST http://localhost:5050/query \
 docker compose down --rmi all
 ```
 
-The `test` service is under `profiles: [test]` in `docker-compose.yml` and is built from `./test/Dockerfile`. To edit the tests, modify `test/app.py`.
+The `test` service is under `profiles: [test]` in `docker-compose.yml`. It uses `python:3.13-slim` directly with an inline Python script in the `command:` block — there is no `test/` directory. To edit the tests, modify the `command:` section of the `test` service in `docker-compose.yml`.
 
 ## Mock data and the injection test
 

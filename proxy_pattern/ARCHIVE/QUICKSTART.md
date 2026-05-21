@@ -11,7 +11,7 @@ export OPENAI_API_KEY=sk-your-key-here
 ## 🚀 Step 2: Start Everything
 
 ```bash
-docker compose up -d
+docker compose up --build -d
 ```
 
 This will:
