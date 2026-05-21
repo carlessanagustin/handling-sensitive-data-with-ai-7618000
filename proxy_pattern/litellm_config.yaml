@@ -6,6 +6,12 @@ model_list:
     litellm_params:
       model: mistral/mistral-small-latest
       api_key: "os.environ/MISTRAL_API_KEY" # ensure you have `MISTRAL_API_KEY` in your .env
+
+  #- model_name: "llama3.1"             
+  #  litellm_params:
+  #    model: "ollama/llama3.1"
+  #    api_base: "http://localhost:11434"
+
   ## Current OpenAI Models (2026) - Recommended
   #- model_name: gpt-5.2
   #  litellm_params:
