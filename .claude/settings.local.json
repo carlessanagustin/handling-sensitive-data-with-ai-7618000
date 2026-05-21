@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(chmod +x *)",
-      "Bash(bash *)"
+      "Bash(bash *)",
+      "Bash(grep -n '\\\\${' /Users/sanagu0000/repos/carles/handling-sensitive-data-with-ai-7618000/proxy_pattern/docker-compose.yml)"
     ]
   }
 }
